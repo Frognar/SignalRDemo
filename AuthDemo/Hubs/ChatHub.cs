@@ -6,37 +6,27 @@ namespace AuthDemo.Hubs;
 [Authorize]
 public class ChatHub : Hub
 {
-    private static readonly ConnectionMapping<string> Connections = new();
-    public async Task SendMessage(string user, string message)
-    {
-        foreach (string connection in Connections.GetConnections(user))
-        {
-            await Clients.Client(connection).SendAsync("ReceiveMessage", $"{user}: {message}");
-        }
-    }
-
-    public override Task OnConnectedAsync()
+    public async Task SendMessage(string who, string message)
     {
         string? name = Context.User?.Identity?.Name;
         if (string.IsNullOrEmpty(name))
         {
-            return base.OnConnectedAsync();
+            return;
         }
-        
-        Connections.Add(name, Context.ConnectionId);
 
-        return base.OnConnectedAsync();
+        await Clients.Groups(who).SendAsync("ReceiveMessage", $"{name}: {message}");
     }
-    
-    public override Task OnDisconnectedAsync(Exception? exception)
+
+    public override async Task OnConnectedAsync()
     {
         string? name = Context.User?.Identity?.Name;
         if (string.IsNullOrEmpty(name))
         {
-            return base.OnDisconnectedAsync(exception);
+            await base.OnConnectedAsync();
+            return;
         }
         
-        Connections.Remove(name, Context.ConnectionId);
-        return base.OnDisconnectedAsync(exception);
+        await Groups.AddToGroupAsync(Context.ConnectionId, name);
+        await base.OnConnectedAsync();
     }
 }
